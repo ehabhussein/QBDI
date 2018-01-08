@@ -91,6 +91,7 @@ private:
     GPRState*                                                       curGPRState;
     FPRState*                                                       curFPRState;
     ExecBlock*                                                      curExecBlock;
+    VMState*                                                        curState;
 
     std::vector<Patch> patch(rword start);
 

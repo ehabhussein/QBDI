@@ -128,6 +128,7 @@ Engine::Engine(const std::string& _cpu, const std::vector<std::string>& _mattrs,
     initFPRState();
 
     curExecBlock = nullptr;
+    curState = nullptr;
 }
 
 Engine::~Engine() {
@@ -396,6 +397,10 @@ bool Engine::run(rword start, rword stop) {
         }
         // Get next block PC
         currentPC = QBDI_GPR_GET(curGPRState, REG_PC);
+        if(curState != nullptr) {
+            delete curState;
+            curState = nullptr;
+        }
         LogDebug("Engine::run", "Next address to execute is 0x%" PRIRWORD, currentPC);
     } while(currentPC != stop);
 
@@ -431,17 +436,25 @@ uint32_t Engine::addVMEventCB(VMEvent mask, VMCallback cbk, void *data) {
 }
 
 void Engine::signalEvent(VMEvent kind, rword currentPC, GPRState *gprState, FPRState *fprState) {
-    VMState state = VMState {kind, currentPC, currentPC, currentPC, currentPC, 0};
-    if(curExecBlock != nullptr) {
-        const BBInfo* bbInfo = blockManager->getBBInfo(currentPC);
-        state.sequenceEnd = curExecBlock->getInstMetadata(curExecBlock->getSeqEnd(curExecBlock->getCurrentSeqID()))->endAddress();
-        state.basicBlockStart = bbInfo->start;
-        state.basicBlockEnd = bbInfo->end;
-    }
     for(const auto& item : vmCallbacks) {
         const QBDI::CallbackRegistration& r = item.second;
         if(kind & r.mask) {
-            r.cbk(vminstance, &state, gprState, fprState, r.data);
+            if(curState == nullptr) {
+                curState = new VMState {kind, currentPC, currentPC, currentPC, currentPC, 0};
+                if(curExecBlock != nullptr) {
+                    const BBInfo* bbInfo = blockManager->getBBInfo(currentPC);
+                    uint16_t seqID = curExecBlock->getCurrentSeqID();
+
+                    curState->sequenceStart = curExecBlock->getInstMetadata(curExecBlock->getSeqStart(seqID))->address;
+                    curState->sequenceEnd = curExecBlock->getInstMetadata(curExecBlock->getSeqEnd(seqID))->endAddress();
+                    curState->basicBlockStart = bbInfo->start;
+                    curState->basicBlockEnd = bbInfo->end;
+                }
+            }
+            else {
+                curState->event = kind;
+            }
+            r.cbk(vminstance, curState, gprState, fprState, r.data);
         }
     }
 }
