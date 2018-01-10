@@ -49,6 +49,11 @@ struct BBInfo {
     rword end;
 };
 
+struct SearchResult {
+    rword address;
+    size_t regionIdx;
+};
+
 struct ExecRegion {
     Range<rword>                    covered;
     unsigned                        translated; 
@@ -64,6 +69,7 @@ class ExecBlockManager {
 private:
 
     std::vector<ExecRegion>         regions;
+    SearchResult                    searchCache;
     std::map<rword, InstAnalysis*>  analysisCache;
     std::vector<size_t>             flushList;
     rword                           total_translated_size;
@@ -76,7 +82,7 @@ private:
 
     void eraseRegion(size_t r);
 
-    size_t searchRegion(rword start) const;
+    size_t searchRegion(rword start);
 
     size_t findRegion(Range<rword> codeRange);
 
@@ -97,7 +103,7 @@ public:
 
     ExecBlock* getExecBlock(rword address);
 
-    const BBInfo* getBBInfo(rword address) const;
+    const BBInfo* getBBInfo(rword address);
 
     void writeBasicBlock(const std::vector<Patch>& basicBlock);
 
